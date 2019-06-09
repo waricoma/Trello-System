@@ -1,18 +1,14 @@
 'use strict';
 
-/**
- * @fileOverview check_label.js
- *
- * @author tsuyoshi007
- * @version 1.0.0
- */
 
+require('dotenv').config();
 const Trello = require('trello');
 const args = process.argv[2];
+const axios = require('axios');
 
 const trello = new Trello(
-  '', // first argument: application key
-  '' // second arguemtn: user token
+  process.env.API_KEY, // first argument: application key
+  process.env.TOKEN // second arguemtn: user token
 );
 
 /**
@@ -20,32 +16,43 @@ const trello = new Trello(
  * argument: id of member of the board
  * @type {string}
  */
-const memberId = '';
 
-trello.getBoards(memberId, (getBoardErr, board) => {
-  if (getBoardErr) {
-    console.error(getBoardErr);
-    return;
-  }
-  trello.getCardsOnBoard(board[0].id, (getCardsErr, cards) => { // you can specify a specific board here !!!
-    if (getCardsErr) {
-      console.error(getCardsErr);
-      return;
-    }
+const BOARD_NAME = process.env.BOARD_NAME;
 
-    let resUrl = [];
-    cards.forEach(card => {
-      card.labels.forEach(label => {
-        if (label.name === args) {
-          resUrl.push(card.shortUrl);
+const urlAllBoards = `https://api.trello.com/1/members/me/boards?key=${process.env.API_KEY}&token=${process.env.TOKEN}`;
+
+
+let storeCardUrls = [];
+
+const resUrl = async function () {
+  try {
+    const getAllBoards = await axios(urlAllBoards);
+
+    const board = getAllBoards.data.filter((board) => board.name === BOARD_NAME)[0]
+
+    const listOnBoard = await trello.getListsOnBoard(board.id);
+
+    const cards = await trello.getCardsOnList(listOnBoard[0].id);
+
+    for (let ele in cards) {
+      for (let i in cards[ele].labels) {
+        if (cards[ele].labels[i].name === args) {
+          storeCardUrls.push(cards[ele].shortUrl);
         }
-      });
-    });
-
-    if (!resUrl.length) {
-      console.log("We can't find the card with the specified label!!!");
-      return;
+      }
     }
-    console.log(resUrl);
-  });
-});
+    if (storeCardUrls.length === 0) {
+      console.log("Can't not the find the card with this label");
+    } else {
+      console.log(storeCardUrls);
+      return storeCardUrls;
+    }
+
+  } catch (error) {
+    console.log(error);
+  }
+};
+resUrl();
+
+
+
